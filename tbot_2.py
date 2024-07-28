@@ -1,6 +1,6 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 import aiohttp
 
 # Enable logging
@@ -305,18 +305,38 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
         elif back_target == "maps":
             await maps(query, context)
 
+async def request_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Ask the user to share their location."""
+    await update.message.reply_text(
+        "Please share your location.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Share Location", request_location=True)]
+        ])
+    )
+
+async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the location sent by the user."""
+    user_location = update.message.location
+    context.user_data['location'] = (user_location.latitude, user_location.longitude)
+    await update.message.reply_text("Location received. Now use /send_location <pilgrim_id> to send the location.")
+
 async def send_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /send_location command."""
+    if 'location' not in context.user_data:
+        await update.message.reply_text("First share your location using /request_location.")
+        return
+
+    latitude, longitude = context.user_data['location']
     try:
-        _, pilgrim_id, location_one, location_two = update.message.text.split()
+        _, pilgrim_id = update.message.text.split()
     except ValueError:
-        await update.message.reply_text("Usage: /send_location <pilgrim_id> <latitude> <longitude>")
+        await update.message.reply_text("Usage: /send_location <pilgrim_id>")
         return
 
     async with aiohttp.ClientSession() as session:
         async with session.put(f"http://localhost:8080/api/v1/pilgrim/update-location/{pilgrim_id}", json={
-            "locationOne": location_one,
-            "locationTwo": location_two
+            "locationOne": str(latitude),
+            "locationTwo": str(longitude)
         }) as response:
             if response.status == 200:
                 await update.message.reply_text("Location updated successfully.")
@@ -337,7 +357,9 @@ def main() -> None:
     application.add_handler(CommandHandler("questions", questions))
     application.add_handler(CommandHandler("news", news))
     application.add_handler(CommandHandler("maps", maps))
+    application.add_handler(CommandHandler("request_location", request_location))
     application.add_handler(CommandHandler("send_location", send_location))
+    application.add_handler(MessageHandler(filters.LOCATION, location_handler))
     application.add_handler(CallbackQueryHandler(button))
 
     application.run_polling(allowed_updates=Update.ALL_TYPES)

@@ -14,6 +14,7 @@ TOKEN = "6936679307:AAEtMUVlvRw0jNHcpH6MIVHJxRojHSSDeZM"
 
 # API base URLs
 BASE_URL = "http://oralbekov.dias19.fvds.ru/api/"
+AUTH_BASE_URL = "http://localhost:8080/api/v1/auth/"
 
 # Define the endpoints for categories under info, calendar, and news
 INFO_CATEGORIES = {
@@ -37,19 +38,15 @@ CITY_ENDPOINT = "maps/city/"
 ROUTE_ENDPOINT = "maps/route/"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /start is issued."""
-    await update.message.reply_text("Welcome! Use /info, /calendar, /questions, /news, /maps to get started.")
-
+    await update.message.reply_text("Welcome! Use /info, /calendar, /questions, /news, /maps, /send_location to get started.")
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Provide category options when /info command is issued."""
     keyboard = [
         [InlineKeyboardButton("What to take", callback_data="category_what-to-take")],
         [InlineKeyboardButton("Main", callback_data="category_main")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Please choose a category:", reply_markup=reply_markup)
-
 
 async def calendar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Provide category options when /calendar command is issued."""
@@ -59,7 +56,6 @@ async def calendar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Please choose a category:", reply_markup=reply_markup)
-
 
 async def questions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Fetch and display questions when /questions command is issued."""
@@ -76,7 +72,6 @@ async def questions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Select a question:", reply_markup=reply_markup)
 
-
 async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Fetch and display news when /news command is issued."""
     data = await fetch_data(f"{BASE_URL}{NEWS_ENDPOINT}")
@@ -92,7 +87,6 @@ async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Select a news item:", reply_markup=reply_markup)
 
-
 async def maps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Provide options when /maps command is issued."""
     keyboard = [
@@ -105,20 +99,17 @@ async def maps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Please choose a category:", reply_markup=reply_markup)
 
-
-async def fetch_data(url: str) -> list:
+async def fetch_data(url: str, headers: dict = None) -> list:
     """Fetch data from the API."""
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
+        async with session.get(url, headers=headers) as response:
             if response.status == 200:
                 return await response.json()
             else:
                 logger.error(f"Failed to fetch data: {response.status}")
                 return []
 
-
 async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the logic after acknowledging the callback query."""
     logger.info(f"Callback data: {query.data}")  # Log the callback data
 
     if query.data.startswith("category_"):
@@ -143,9 +134,10 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
 
             # Create buttons for each date
             keyboard = [
-                [InlineKeyboardButton(item['date'], callback_data=f"calendar_date_{category}_{item['date']}")]
-                for item in data
-            ] + [[InlineKeyboardButton("Back", callback_data="back_calendar")]]
+                           [InlineKeyboardButton(item['date'],
+                                                 callback_data=f"calendar_date_{category}_{item['date']}")]
+                           for item in data
+                       ] + [[InlineKeyboardButton("Back", callback_data="back_calendar")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.edit_message_text("Select a date:", reply_markup=reply_markup)
 
@@ -168,11 +160,15 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
                     content = content[:4093] + '...'
 
                 # Send the content value as a message
-                await query.edit_message_text(content, parse_mode='HTML', reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_info")]]))
+                await query.edit_message_text(content, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("Back", callback_data="back_info")]]))
             else:
-                await query.edit_message_text("Sorry, couldn't fetch the content for this item.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_info")]]))
+                await query.edit_message_text("Sorry, couldn't fetch the content for this item.",
+                                              reply_markup=InlineKeyboardMarkup(
+                                                  [[InlineKeyboardButton("Back", callback_data="back_info")]]))
         else:
-            await query.edit_message_text("Invalid query data format.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_info")]]))
+            await query.edit_message_text("Invalid query data format.", reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Back", callback_data="back_info")]]))
 
     elif query.data.startswith("calendar_date_"):
         parts = query.data.split("_")
@@ -202,13 +198,18 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
                         content = content[:4093] + '...'
 
                     # Send the content value as a message
-                    await query.edit_message_text(content, parse_mode='HTML', reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_calendar")]]))
+                    await query.edit_message_text(content, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(
+                        [[InlineKeyboardButton("Back", callback_data="back_calendar")]]))
                 else:
-                    await query.edit_message_text("Sorry, couldn't fetch the content for this item.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_calendar")]]))
+                    await query.edit_message_text("Sorry, couldn't fetch the content for this item.",
+                                                  reply_markup=InlineKeyboardMarkup(
+                                                      [[InlineKeyboardButton("Back", callback_data="back_calendar")]]))
             else:
-                await query.edit_message_text("Invalid calendar category.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_calendar")]]))
+                await query.edit_message_text("Invalid calendar category.", reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("Back", callback_data="back_calendar")]]))
         else:
-            await query.edit_message_text("Invalid query data format.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_calendar")]]))
+            await query.edit_message_text("Invalid query data format.", reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Back", callback_data="back_calendar")]]))
 
     elif query.data.startswith("question_"):
         parts = query.data.split("_")
@@ -227,11 +228,15 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
                     response = response[:4093] + '...'
 
                 # Send the response value as a message
-                await query.edit_message_text(response, parse_mode='HTML', reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_questions")]]))
+                await query.edit_message_text(response, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("Back", callback_data="back_questions")]]))
             else:
-                await query.edit_message_text("Sorry, couldn't fetch the response for this question.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_questions")]]))
+                await query.edit_message_text("Sorry, couldn't fetch the response for this question.",
+                                              reply_markup=InlineKeyboardMarkup(
+                                                  [[InlineKeyboardButton("Back", callback_data="back_questions")]]))
         else:
-            await query.edit_message_text("Invalid query data format.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_questions")]]))
+            await query.edit_message_text("Invalid query data format.", reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Back", callback_data="back_questions")]]))
 
     elif query.data.startswith("news_"):
         parts = query.data.split("_")
@@ -250,11 +255,15 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
                     content = content[:4093] + '...'
 
                 # Send the content value as a message
-                await query.edit_message_text(content, parse_mode='HTML', reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_news")]]))
+                await query.edit_message_text(content, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("Back", callback_data="back_news")]]))
             else:
-                await query.edit_message_text("Sorry, couldn't fetch the content for this news item.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_news")]]))
+                await query.edit_message_text("Sorry, couldn't fetch the content for this news item.",
+                                              reply_markup=InlineKeyboardMarkup(
+                                                  [[InlineKeyboardButton("Back", callback_data="back_news")]]))
         else:
-            await query.edit_message_text("Invalid query data format.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_news")]]))
+            await query.edit_message_text("Invalid query data format.", reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Back", callback_data="back_news")]]))
 
     elif query.data.startswith("maps_"):
         category = query.data.split("_")[1]
@@ -263,10 +272,14 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
             response = "\n\n".join([f"{item['name']}: {item['desc']}\nLink: {item['link']}" for item in data])
         elif category == 'places':
             data = await fetch_data(f"{BASE_URL}{PLACES_ENDPOINT}")
-            response = "\n\n".join([f"{item['title']}: {item['content']}\nLocation: {item['latitude']}, {item['longitude']}" for item in data])
+            response = "\n\n".join(
+                [f"{item['title']}: {item['content']}\nLocation: {item['latitude']}, {item['longitude']}" for item in
+                 data])
         elif category == 'restaurants':
             data = await fetch_data(f"{BASE_URL}{RESTAURANTS_ENDPOINT}")
-            response = "\n\n".join([f"{item['title']}: {item['content']}\nRating: {item['rating']}\nPhone: {item['phone']}" for item in data])
+            response = "\n\n".join(
+                [f"{item['title']}: {item['content']}\nRating: {item['rating']}\nPhone: {item['phone']}" for item in
+                 data])
         elif category == 'city':
             data = await fetch_data(f"{BASE_URL}{CITY_ENDPOINT}")
             response = "\n\n".join([f"{item['name']}: {item['content']}" for item in data])
@@ -276,7 +289,8 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
         else:
             response = "Invalid category"
 
-        await query.edit_message_text(response, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="back_maps")]]))
+        await query.edit_message_text(response, reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Back", callback_data="back_maps")]]))
 
     elif query.data.startswith("back_"):
         back_target = query.data.split("_")[1]
@@ -291,16 +305,30 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
         elif back_target == "maps":
             await maps(query, context)
 
+async def send_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the /send_location command."""
+    try:
+        _, pilgrim_id, location_one, location_two = update.message.text.split()
+    except ValueError:
+        await update.message.reply_text("Usage: /send_location <pilgrim_id> <latitude> <longitude>")
+        return
+
+    async with aiohttp.ClientSession() as session:
+        async with session.put(f"http://localhost:8080/api/v1/pilgrim/update-location/{pilgrim_id}", json={
+            "locationOne": location_one,
+            "locationTwo": location_two
+        }) as response:
+            if response.status == 200:
+                await update.message.reply_text("Location updated successfully.")
+            else:
+                await update.message.reply_text("Failed to update location.")
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle button press."""
     query = update.callback_query
     await query.answer()
     await handle_button_callback(query, context)
 
-
 def main() -> None:
-    """Run the bot."""
     application = ApplicationBuilder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
@@ -309,10 +337,10 @@ def main() -> None:
     application.add_handler(CommandHandler("questions", questions))
     application.add_handler(CommandHandler("news", news))
     application.add_handler(CommandHandler("maps", maps))
+    application.add_handler(CommandHandler("send_location", send_location))
     application.add_handler(CallbackQueryHandler(button))
 
     application.run_polling(allowed_updates=Update.ALL_TYPES)
-
 
 if __name__ == "__main__":
     main()
