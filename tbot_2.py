@@ -1,4 +1,6 @@
 import logging
+
+from django.db.backends import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 import aiohttp
@@ -35,6 +37,21 @@ PLACES_ENDPOINT = "maps/places/"
 RESTAURANTS_ENDPOINT = "maps/restaurants/"
 CITY_ENDPOINT = "maps/city/"
 ROUTE_ENDPOINT = "maps/route/"
+
+def get_token(user_id):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('SELECT token FROM users WHERE user_id = ?', (user_id,))
+    result = c.fetchone()
+    conn.close()
+    return result[0] if result else None
+
+def set_token(user_id, email, token):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('INSERT OR REPLACE INTO users (user_id, email, token) VALUES (?, ?, ?)', (user_id, email, token))
+    conn.commit()
+    conn.close()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
@@ -290,6 +307,30 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
             await news(query, context)
         elif back_target == "maps":
             await maps(query, context)
+
+async def send_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the /send_location command."""
+    user_id = update.message.from_user.id
+    token = get_token(user_id)
+    if not token:
+        await update.message.reply_text("Please log in first using /login <email> <password>")
+        return
+
+    try:
+        _, pilgrim_id, location_one, location_two = update.message.text.split()
+    except ValueError:
+        await update.message.reply_text("Usage: /send_location <pilgrim_id> <latitude> <longitude>")
+        return
+
+    async with aiohttp.ClientSession() as session:
+        async with session.put(f"http://localhost:8080/api/v1/pilgrim/update-location/{pilgrim_id}", json={
+            "locationOne": location_one,
+            "locationTwo": location_two
+        }, headers={"Authorization": f"Bearer {token}"}) as response:
+            if response.status == 200:
+                await update.message.reply_text("Location updated successfully.")
+            else:
+                await update.message.reply_text("Failed to update location.")
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
