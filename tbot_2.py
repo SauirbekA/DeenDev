@@ -163,11 +163,11 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
                 await query.edit_message_text(content, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("Back", callback_data="back_info")]]))
             else:
-                await query.edit_message_text("Sorry, couldn't fetch the content for this item.",
+                await query.edit_message.edit_text("Sorry, couldn't fetch the content for this item.",
                                               reply_markup=InlineKeyboardMarkup(
                                                   [[InlineKeyboardButton("Back", callback_data="back_info")]]))
         else:
-            await query.edit_message_text("Invalid query data format.", reply_markup=InlineKeyboardMarkup(
+            await query.edit_message.edit_text("Invalid query data format.", reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Back", callback_data="back_info")]]))
 
     elif query.data.startswith("calendar_date_"):
@@ -305,25 +305,20 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
         elif back_target == "maps":
             await maps(query, context)
 
-async def request_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Ask the user to share their location."""
-    await update.message.reply_text(
-        "Please share your location.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Share Location", request_location=True)]
-        ])
-    )
-
-async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the location sent by the user."""
     user_location = update.message.location
     context.user_data['location'] = (user_location.latitude, user_location.longitude)
-    await update.message.reply_text("Location received. Now use /send_location <pilgrim_id> to send the location.")
+    latitude = user_location.latitude
+    longitude = user_location.longitude
+
+    await update.message.reply_text(f"Received location:\nLatitude: {latitude}\nLongitude: {longitude}")
+    await update.message.reply_text("Now use /send_location <pilgrim_id> to send the location.")
 
 async def send_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /send_location command."""
     if 'location' not in context.user_data:
-        await update.message.reply_text("First share your location using /request_location.")
+        await update.message.reply_text("First share your location.")
         return
 
     latitude, longitude = context.user_data['location']
@@ -357,9 +352,8 @@ def main() -> None:
     application.add_handler(CommandHandler("questions", questions))
     application.add_handler(CommandHandler("news", news))
     application.add_handler(CommandHandler("maps", maps))
-    application.add_handler(CommandHandler("request_location", request_location))
     application.add_handler(CommandHandler("send_location", send_location))
-    application.add_handler(MessageHandler(filters.LOCATION, location_handler))
+    application.add_handler(MessageHandler(filters.LOCATION, location))
     application.add_handler(CallbackQueryHandler(button))
 
     application.run_polling(allowed_updates=Update.ALL_TYPES)
