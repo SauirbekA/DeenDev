@@ -184,10 +184,10 @@ async def maps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Please choose a category:", reply_markup=reply_markup)
 
 
-async def fetch_data(url: str, headers: dict) -> list:
+async def fetch_data(url: str) -> list:
     """Fetch data from the API."""
     async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers) as response:
+        async with session.get(url) as response:
             if response.status == 200:
                 return await response.json()
             else:
