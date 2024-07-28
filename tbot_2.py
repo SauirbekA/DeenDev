@@ -1,5 +1,4 @@
 import logging
-import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 import aiohttp
@@ -38,44 +37,10 @@ RESTAURANTS_ENDPOINT = "maps/restaurants/"
 CITY_ENDPOINT = "maps/city/"
 ROUTE_ENDPOINT = "maps/route/"
 
-# Initialize the database
-def init_db():
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-                    user_id INTEGER PRIMARY KEY,
-                    email TEXT,
-                    token TEXT
-                )''')
-    conn.commit()
-    conn.close()
-
-def get_token(user_id):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('SELECT token FROM users WHERE user_id = ?', (user_id,))
-    result = c.fetchone()
-    conn.close()
-    return result[0] if result else None
-
-def set_token(user_id, email, token):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('INSERT OR REPLACE INTO users (user_id, email, token) VALUES (?, ?, ?)', (user_id, email, token))
-    conn.commit()
-    conn.close()
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Welcome! Use /info, /calendar, /questions, /news, /maps, /send_location to get started.")
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.message.from_user.id
-    token = get_token(user_id)
-    if not token:
-        await update.message.reply_text("Please log in first.")
-        return
-
-    headers = {"Authorization": f"Bearer {token}"}
     keyboard = [
         [InlineKeyboardButton("What to take", callback_data="category_what-to-take")],
         [InlineKeyboardButton("Main", callback_data="category_main")]
@@ -92,7 +57,6 @@ async def calendar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Please choose a category:", reply_markup=reply_markup)
 
-
 async def questions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Fetch and display questions when /questions command is issued."""
     data = await fetch_data(f"{BASE_URL}{QUESTION_ENDPOINT}")
@@ -108,7 +72,6 @@ async def questions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Select a question:", reply_markup=reply_markup)
 
-
 async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Fetch and display news when /news command is issued."""
     data = await fetch_data(f"{BASE_URL}{NEWS_ENDPOINT}")
@@ -123,7 +86,6 @@ async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Select a news item:", reply_markup=reply_markup)
-
 
 async def maps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Provide options when /maps command is issued."""
@@ -148,20 +110,13 @@ async def fetch_data(url: str, headers: dict = None) -> list:
                 return []
 
 async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = query.from_user.id
-    token = get_token(user_id)
-    if not token:
-        await query.answer("Please log in first.")
-        return
-
-    headers = {"Authorization": f"Bearer {token}"}
     logger.info(f"Callback data: {query.data}")  # Log the callback data
 
     if query.data.startswith("category_"):
         category = query.data.split("_")[1]
         endpoint = INFO_CATEGORIES.get(category)
         if endpoint:
-            data = await fetch_data(f"{BASE_URL}{endpoint}", headers)
+            data = await fetch_data(f"{BASE_URL}{endpoint}")
 
             # Create buttons for each item
             keyboard = [
@@ -352,12 +307,6 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def send_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /send_location command."""
-    user_id = update.message.from_user.id
-    token = get_token(user_id)
-    if not token:
-        await update.message.reply_text("Please log in first.")
-        return
-
     try:
         _, pilgrim_id, location_one, location_two = update.message.text.split()
     except ValueError:
@@ -368,7 +317,7 @@ async def send_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         async with session.put(f"http://localhost:8080/api/v1/pilgrim/update-location/{pilgrim_id}", json={
             "locationOne": location_one,
             "locationTwo": location_two
-        }, headers={"Authorization": f"Bearer {token}"}) as response:
+        }) as response:
             if response.status == 200:
                 await update.message.reply_text("Location updated successfully.")
             else:
@@ -380,7 +329,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await handle_button_callback(query, context)
 
 def main() -> None:
-    init_db()
     application = ApplicationBuilder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
