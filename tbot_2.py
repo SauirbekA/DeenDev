@@ -42,7 +42,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
-        [InlineKeyboardButton("What to take", callback_data="category_what-to-take")],
+        [InlineKeyboardButton("What to take", callback_data="category_what-to-take", request_location=True)],
         [InlineKeyboardButton("Main", callback_data="category_main")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
