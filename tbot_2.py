@@ -119,11 +119,7 @@ async def logout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Logout successful.")
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.message.from_user.id
-    token = get_token(user_id)
-    if not token:
-        await update.message.reply_text("Please log in first using /login <email> <password>")
-        return
+
 
     headers = {"Authorization": f"Bearer {token}"}
     keyboard = [
@@ -133,7 +129,60 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Please choose a category:", reply_markup=reply_markup)
 
-# Similar changes should be made for other commands (calendar, questions, news, maps) to check login and use token.
+async def calendar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Provide category options when /calendar command is issued."""
+    keyboard = [
+        [InlineKeyboardButton("Hajj", callback_data="calendar_hajj")],
+        [InlineKeyboardButton("Umrah", callback_data="calendar_umrah")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Please choose a category:", reply_markup=reply_markup)
+
+
+async def questions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Fetch and display questions when /questions command is issued."""
+    data = await fetch_data(f"{BASE_URL}{QUESTION_ENDPOINT}")
+
+    # Store the questions in the context for later use
+    context.user_data['questions'] = data
+
+    # Create buttons for each question
+    keyboard = [
+        [InlineKeyboardButton(item['title_en'], callback_data=f"question_{item['id']}")]
+        for item in data
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Select a question:", reply_markup=reply_markup)
+
+
+async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Fetch and display news when /news command is issued."""
+    data = await fetch_data(f"{BASE_URL}{NEWS_ENDPOINT}")
+
+    # Store the news in the context for later use
+    context.user_data['news'] = data
+
+    # Create buttons for each news item
+    keyboard = [
+        [InlineKeyboardButton(item['title'], callback_data=f"news_{item['id']}")]
+        for item in data
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Select a news item:", reply_markup=reply_markup)
+
+
+async def maps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Provide options when /maps command is issued."""
+    keyboard = [
+        [InlineKeyboardButton("Taxi", callback_data="maps_taxi")],
+        [InlineKeyboardButton("Places", callback_data="maps_places")],
+        [InlineKeyboardButton("Restaurants", callback_data="maps_restaurants")],
+        [InlineKeyboardButton("City Info", callback_data="maps_city")],
+        [InlineKeyboardButton("Route Info", callback_data="maps_route")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Please choose a category:", reply_markup=reply_markup)
+
 
 async def fetch_data(url: str, headers: dict) -> list:
     """Fetch data from the API."""
