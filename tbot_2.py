@@ -1,7 +1,7 @@
 import logging
 import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 import aiohttp
 
 # Enable logging
@@ -66,63 +66,13 @@ def set_token(user_id, email, token):
     conn.close()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Welcome! Use /register <email> <password>, /login <email> <password>, /logout to manage your account.")
-
-async def register(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.message.from_user.id
-    try:
-        _, email, password = update.message.text.split()
-    except ValueError:
-        await update.message.reply_text("Usage: /register <email> <password>")
-        return
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(f"{AUTH_BASE_URL}register", json={
-            "firstname": "Telegram",
-            "lastname": "User",
-            "email": email,
-            "password": password,
-            "role": "USER"
-        }) as response:
-            if response.status == 200:
-                data = await response.json()
-                access_token = data['access_token']
-                set_token(user_id, email, access_token)
-                await update.message.reply_text("Registration successful.")
-            else:
-                await update.message.reply_text("Registration failed.")
-
-async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.message.from_user.id
-    try:
-        _, email, password = update.message.text.split()
-    except ValueError:
-        await update.message.reply_text("Usage: /login <email> <password>")
-        return
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(f"{AUTH_BASE_URL}authenticate", json={
-            "email": email,
-            "password": password
-        }) as response:
-            if response.status == 200:
-                data = await response.json()
-                access_token = data['access_token']
-                set_token(user_id, email, access_token)
-                await update.message.reply_text("Login successful.")
-            else:
-                await update.message.reply_text("Login failed.")
-
-async def logout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.message.from_user.id
-    set_token(user_id, None, None)
-    await update.message.reply_text("Logout successful.")
+    await update.message.reply_text("Welcome! Use /info, /calendar, /questions, /news, /maps, /send_location to get started.")
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     token = get_token(user_id)
     if not token:
-        await update.message.reply_text("Please log in first using /login <email> <password>")
+        await update.message.reply_text("Please log in first.")
         return
 
     headers = {"Authorization": f"Bearer {token}"}
@@ -187,7 +137,7 @@ async def maps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Please choose a category:", reply_markup=reply_markup)
 
-async def fetch_data(url: str, headers: dict) -> list:
+async def fetch_data(url: str, headers: dict = None) -> list:
     """Fetch data from the API."""
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as response:
@@ -201,7 +151,7 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
     user_id = query.from_user.id
     token = get_token(user_id)
     if not token:
-        await query.answer("Please log in first using /login <email> <password>")
+        await query.answer("Please log in first.")
         return
 
     headers = {"Authorization": f"Bearer {token}"}
@@ -393,8 +343,8 @@ async def handle_button_callback(query, context: ContextTypes.DEFAULT_TYPE) -> N
             await info(query, context)
         elif back_target == "calendar":
             await calendar(query, context)
-        # elif back_target == "questions":
-        #     await questions(query, context)
+        elif back_target == "questions":
+            await questions(query, context)
         elif back_target == "news":
             await news(query, context)
         elif back_target == "maps":
@@ -405,7 +355,7 @@ async def send_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user_id = update.message.from_user.id
     token = get_token(user_id)
     if not token:
-        await update.message.reply_text("Please log in first using /login <email> <password>")
+        await update.message.reply_text("Please log in first.")
         return
 
     try:
@@ -434,9 +384,6 @@ def main() -> None:
     application = ApplicationBuilder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("register", register))
-    application.add_handler(CommandHandler("login", login))
-    application.add_handler(CommandHandler("logout", logout))
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CommandHandler("calendar", calendar))
     application.add_handler(CommandHandler("questions", questions))
