@@ -11,7 +11,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Replace with your actual bot token
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = "6936679307:AAEtMUVlvRw0jNHcpH6MIVHJxRojHSSDeZM"
 
 # API base URLs
 BASE_URL = "http://oralbekov.dias19.fvds.ru/api/"
